@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
@@ -23,7 +25,7 @@ type AuthResponse struct {
 	Token string `json:"access_token"`
 }
 
-func (b *Builder) Auth() (gc github.Client, ct context.Context, err error) {
+func (b *Builder) Auth() (success bool, gc github.Client, ct context.Context, err error) {
 	ctx := context.Background()
 
 	client := &http.Client{}
@@ -33,7 +35,7 @@ func (b *Builder) Auth() (gc github.Client, ct context.Context, err error) {
 	})
 
 	if err != nil {
-		return github.Client{}, ctx, err
+		return false, github.Client{}, ctx, err
 	}
 
 	req, err := http.NewRequest(
@@ -45,19 +47,19 @@ func (b *Builder) Auth() (gc github.Client, ct context.Context, err error) {
 	res, err := client.Do(req)
 	
 	if err != nil {
-		return github.Client{}, ctx, err
+		return false, github.Client{}, ctx, err
 	}
 
 	resBody, err := io.ReadAll(res.Body)
 
 	if err != nil {
-		return github.Client{}, ctx, err
+		return false, github.Client{}, ctx, err
 	}
 
 	authResponse := &AuthResponse{}
 
 	if jsonErr := json.Unmarshal(resBody, &authResponse); jsonErr != nil {
-		return github.Client{}, ctx, jsonErr
+		return false, github.Client{}, ctx, jsonErr
 	}	
 
 	ts := oauth2.StaticTokenSource(
@@ -67,14 +69,18 @@ func (b *Builder) Auth() (gc github.Client, ct context.Context, err error) {
 
 	ghClient := github.NewClient(tc)
 
-	return *ghClient, ctx, nil
+	return true, *ghClient, ctx, nil
 }
 
 func (b *Builder) DownloadRepo() error {
-	client, ctx, err := b.Auth()
+	ok, client, ctx, err := b.Auth()
 
 	if err != nil {
 		return err
+	}
+
+	if ok != true {
+		return errors.New("There was an error authenticating the current user!")
 	}
 	
 	repo, _, err := client.Repositories.Get(ctx, b.Owner, b.Repo)
@@ -82,6 +88,30 @@ func (b *Builder) DownloadRepo() error {
 	if err != nil {
 		return err
 	}
+
+	zipball, err := http.Get(*repo.ArchiveURL)
+
+	if err != nil {
+		return err
+	}
+
+	defer zipball.Body.Close()
+
+	file, err := os.Create(fmt.Sprintf("/tmp/fc-builder/%s-%s", repo.Owner.ID, *repo.Name))
+
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	_, downloadErr := io.Copy(file, zipball.Body)
+
+	if downloadErr != nil {
+		return downloadErr
+	}
+
+	fmt.Println(fmt.Sprintf("Downloaded %s-%s", repo.Owner.ID, *repo.Name))
 
 	return nil
 }
