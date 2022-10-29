@@ -14,5 +14,4 @@ require (
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	k8s.io/client-go v0.25.3 // indirect
 )
