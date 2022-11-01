@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/ferretcode-freelancing/fc-provision/detectors"
 	"github.com/ferretcode-freelancing/fc-provision/templates"
@@ -63,4 +64,22 @@ func (p *Processor) GetDockerfile() (string, error) {
 	}
 
 	return template.CreateTemplate(), nil
+}
+
+func (p *Processor) CopyDockerfile() error {
+	dockerfile, err := p.GetDockerfile()
+
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(fmt.Sprintf("%s/Dockerfile", p.Path))
+
+	if err != nil {
+		return err
+	}
+
+	file.WriteString(dockerfile)
+
+	return nil
 }
