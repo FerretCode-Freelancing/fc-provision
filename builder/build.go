@@ -1,7 +1,9 @@
 package builder
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -25,6 +27,21 @@ func Build(path string, imageName string) error {
 	}
 
 	fmt.Println(fmt.Sprintf("Image %s was built successfully.", imageName))
+	fmt.Println("Pushing image...")
+
+	ip := os.Getenv("FC_REGISTRY_SERVICE_HOST")
+	port := os.Getenv("FC_REGISTRY_SERVICE_PORT")
+
+	if ip == "" || port == "" {
+		return errors.New("The registry is not active!")
+	}
+
+	push := exec.Command(
+		"buildah",
+		"push",
+		imageName,
+		fmt.Sprintf("%s:%s", ip, port),
+	)
 
 	return nil
 }
