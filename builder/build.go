@@ -5,16 +5,26 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/Delta456/box-cli-maker/v2"
 )
 
+func getRegistry() string {
+	ip := strings.Trim(os.Getenv("FC_REGISTRY_SERVICE_HOST"), "\n")
+	port := strings.Trim(os.Getenv("FC_REGISTRY_SERVICE_PORT"), "\n")
+
+	return fmt.Sprintf("http://%s:%s", ip, port)
+}
+
 func Build(path string, imageName string) error {
+	registry := getRegistry()
+
 	build := exec.Command(
 		"buildah",
 		"build",
 		"-t",
-		imageName,
+		fmt.Sprintf("%s/%s", registry, imageName),
 		".",
 	)
 
@@ -31,14 +41,14 @@ func Build(path string, imageName string) error {
 	box := box.New(box.Config{Px: 2, Py: 5, Type: "Round", Color: "White"})
 	box.Print(imageName, fmt.Sprintf("Building image %s...", imageName))
 
-	fmt.Println(fmt.Sprintf("Image %s was built successfully.", imageName))
+	fmt.Printf("Image %s was built successfully.\n", imageName)
 	fmt.Println("Pushing image...")
 
 	ip := os.Getenv("FC_REGISTRY_SERVICE_HOST")
 	port := os.Getenv("FC_REGISTRY_SERVICE_PORT")
 
 	if ip == "" || port == "" {
-		return errors.New("The registry is not active!")
+		return errors.New("the registry is not active")
 	}
 
 	push := exec.Command(
@@ -58,7 +68,7 @@ func Build(path string, imageName string) error {
 		return waitErr
 	}
 
-	fmt.Println(fmt.Sprintf("Image %s was built successfully", imageName))
+	fmt.Printf("Image %s was built successfully.\n", imageName)
 
 	return nil
 }

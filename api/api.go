@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-type Api struct {}
+type Api struct{}
 
 func NewApi() Api {
 	api := &Api{}
@@ -30,12 +30,12 @@ func NewApi() Api {
 
 	if username != "" && password != "" {
 		r.Use(basicauth.New("fc-hosting", map[string][]string{
-			username: { password },
+			username: {password},
 		}))
 	}
 
-	r.Post("/build", func (w http.ResponseWriter, r *http.Request) {
-		err := api.Build(w, r)	
+	r.Post("/build", func(w http.ResponseWriter, r *http.Request) {
+		err := api.Build(w, r)
 
 		if err != nil {
 			fmt.Println(err)
@@ -63,11 +63,12 @@ func (a *Api) ProcessBody(w http.ResponseWriter, r *http.Request, s interface{})
 }
 
 type BuildRequest struct {
-	Repo string `json:"repo_name"`
-	Owner string `json:"owner_name"` 
-	Url string `json:"cache_url"`
+	Repo   string `json:"repo_name"`
+	Owner  string `json:"owner_name"`
+	Url    string `json:"cache_url"`
 	Cookie string `json:"session_id"`
-} 
+}
+
 func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	deployErr := "There was an error deploying your repository! Please try again later."
 
@@ -88,16 +89,16 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 
 		if username == "" || password == "" || ip == "" || port == "" {
 			http.Error(w, "Internal server error. Please try again later.", http.StatusInternalServerError)
-			return errors.New("The cache URL is invalid!")
+			return errors.New("the cache URL is invalid")
 		}
 
 		br.Url = fmt.Sprintf("%s:%s@%s:%s", username, password, ip, port)
-	} 
+	}
 
 	extractor := builder.Extractor{
-		Repo: br.Repo,
-		Owner: br.Owner,
-		Url: br.Url,
+		Repo:   br.Repo,
+		Owner:  br.Owner,
+		Url:    br.Url,
 		Cookie: br.Cookie,
 	}
 
@@ -106,7 +107,7 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	if downloadErr != nil {
 		http.Error(w, deployErr, http.StatusInternalServerError)
 
-		return downloadErr	
+		return downloadErr
 	}
 
 	path, err := extractor.ExtractRepo(ownerId, extractor.Repo)

@@ -3,7 +3,6 @@ package builder
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/ferretcode-freelancing/fc-provision/detectors"
@@ -14,7 +13,7 @@ type Processor struct {
 	Path string // the path to the extracted repo
 }
 
-func (p *Processor) DetectLanguage() (string, error) {	
+func (p *Processor) DetectLanguage() (string, error) {
 	ds := &detectors.Detectors{}
 
 	detectors := ds.GetDetectors()
@@ -26,19 +25,19 @@ func (p *Processor) DetectLanguage() (string, error) {
 			return "", err
 		}
 
-		if detected == true {
+		if detected {
 			return language, nil
 		}
 
 		continue
 	}
 
-	return "", errors.New("The language could not be detected!")
+	return "", errors.New("the language could not be detected")
 }
 
 func (p *Processor) GetDockerfile() (string, error) {
-	existingDockerfile, err := ioutil.ReadFile(
-		fmt.Sprintf("%s/Dockerfile", p.Path), 
+	existingDockerfile, err := os.ReadFile(
+		fmt.Sprintf("%s/Dockerfile", p.Path),
 	)
 
 	if err != nil {
@@ -60,7 +59,7 @@ func (p *Processor) GetDockerfile() (string, error) {
 	template := ts.GetTemplate(language)
 
 	if template == nil {
-		return "", errors.New("The dockerfile could not be built!")
+		return "", errors.New("the dockerfile could not be built")
 	}
 
 	return template.CreateTemplate(), nil

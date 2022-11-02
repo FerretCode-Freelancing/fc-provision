@@ -19,7 +19,7 @@ import (
 
 type Extractor struct {
 	Repo   string // repo to fetch from
-	Owner string // repo owner
+	Owner  string // repo owner
 	Url    string // url to fc-session-cache instance to get tokens from
 	Cookie string // session cookie value to fetch token from
 }
@@ -43,8 +43,12 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 		nil,
 	)
 
+	if err != nil {
+		return false, github.Client{}, ctx, err
+	}
+
 	res, err := client.Do(req)
-	
+
 	if err != nil {
 		return false, github.Client{}, ctx, err
 	}
@@ -59,7 +63,7 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 
 	if jsonErr := json.Unmarshal(resBody, &authResponse); jsonErr != nil {
 		return false, github.Client{}, ctx, jsonErr
-	}	
+	}
 
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: authResponse.Token},
@@ -78,12 +82,12 @@ func (e *Extractor) DownloadRepo() (int64, error) {
 		return 0, err
 	}
 
-	if ok != true {
-		return 0, errors.New("There was an error authenticating the current user!")
+	if !ok {
+		return 0, errors.New("there was an error authenticating the current user")
 	}
-	
+
 	repo, _, err := client.Repositories.Get(ctx, e.Owner, e.Repo)
-	
+
 	if err != nil {
 		return 0, err
 	}
@@ -98,8 +102,8 @@ func (e *Extractor) DownloadRepo() (int64, error) {
 
 	file, err := os.Create(
 		fmt.Sprintf(
-			"/tmp/fc-builder/%s-%s", 
-			strconv.FormatInt(*repo.Owner.ID, 10), 
+			"/tmp/fc-builder/%s-%s",
+			strconv.FormatInt(*repo.Owner.ID, 10),
 			*repo.Name,
 		),
 	)
@@ -116,12 +120,10 @@ func (e *Extractor) DownloadRepo() (int64, error) {
 		return 0, downloadErr
 	}
 
-	fmt.Println(
-		fmt.Sprintf(
-			"Downloaded %s-%s", 
-			strconv.FormatInt(*repo.Owner.ID, 10), 
-			*repo.Name,
-		),
+	fmt.Printf(
+		"Downloaded %s-%s\n",
+		strconv.FormatInt(*repo.Owner.ID, 10),
+		*repo.Name,
 	)
 
 	e.ExtractRepo(*repo.Owner.ID, *repo.Name)
@@ -134,7 +136,7 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) 
 		"/tmp/fc-builder/out/%s-%s",
 		strconv.FormatInt(ownerId, 10),
 		repoName,
-	) 
+	)
 
 	zipball, err := zip.OpenReader(outputDir)
 
@@ -147,8 +149,8 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) 
 	for _, file := range zipball.File {
 		path := filepath.Join(outputDir, file.Name)
 
-		if !strings.HasPrefix(path, filepath.Clean(outputDir) + string(os.PathSeparator)) {
-			return "", errors.New("Invalid file path")
+		if !strings.HasPrefix(path, filepath.Clean(outputDir)+string(os.PathSeparator)) {
+			return "", errors.New("invalid file path")
 		}
 
 		if file.FileInfo().IsDir() {
@@ -162,7 +164,7 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) 
 		}
 
 		// create file in output directory
-		destFile, err := os.OpenFile(path, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, file.Mode())
+		destFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 
 		if err != nil {
 			return "", err
