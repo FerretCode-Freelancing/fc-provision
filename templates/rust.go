@@ -9,7 +9,7 @@ func (rt *RustTemplate) GetLanguage() string {
 func (rt *RustTemplate) CreateTemplate() string {
 	dockerfile := ""
 
-	dockerfile += "FROM rust:1.64-alpine as builder\n"
+	dockerfile += "FROM docker.io/rust:1.64-alpine as builder\n"
 	dockerfile += "WORKDIR /usr/src/app\n"
 	dockerfile += "COPY . ."
 	dockerfile += "RUN cargo install --path .\n\n"

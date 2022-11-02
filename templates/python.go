@@ -9,7 +9,7 @@ func (pt *PythonTemplate) GetLanguage() string {
 func (pt *PythonTemplate) CreateTemplate() string {
 	dockerfile := ""
 
-	dockerfile += "FROM python:3.11-alpine\n"
+	dockerfile += "FROM docker.io/python:3.11-alpine\n"
 	dockerfile += "WORKDIR /app\n"
 	dockerfile += "COPY requirements.txt ./\n"
 	dockerfile += "RUN pip install --no-cache-dir -r requirements.txt\n"

@@ -71,27 +71,27 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 	return true, *ghClient, ctx, nil
 }
 
-func (e *Extractor) DownloadRepo() error {
+func (e *Extractor) DownloadRepo() (int64, error) {
 	ok, client, ctx, err := e.Auth()
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if ok != true {
-		return errors.New("There was an error authenticating the current user!")
+		return 0, errors.New("There was an error authenticating the current user!")
 	}
 	
 	repo, _, err := client.Repositories.Get(ctx, e.Owner, e.Repo)
 	
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	zipball, err := http.Get(*repo.ArchiveURL)
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	defer zipball.Body.Close()
@@ -105,7 +105,7 @@ func (e *Extractor) DownloadRepo() error {
 	)
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	defer file.Close()
@@ -113,7 +113,7 @@ func (e *Extractor) DownloadRepo() error {
 	_, downloadErr := io.Copy(file, zipball.Body)
 
 	if downloadErr != nil {
-		return downloadErr
+		return 0, downloadErr
 	}
 
 	fmt.Println(
@@ -126,26 +126,20 @@ func (e *Extractor) DownloadRepo() error {
 
 	e.ExtractRepo(*repo.Owner.ID, *repo.Name)
 
-	return nil
+	return 0, nil
 }
 
-func (e *Extractor) ExtractRepo(ownerId int64, repoName string) error {
+func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) {
 	outputDir := fmt.Sprintf(
 		"/tmp/fc-builder/out/%s-%s",
 		strconv.FormatInt(ownerId, 10),
 		repoName,
 	) 
 
-	zipball, err := zip.OpenReader(
-		fmt.Sprintf(
-			"/tmp/fc-builder/%s-%s",
-			strconv.FormatInt(ownerId, 10),
-			repoName,
-		),
-	)
+	zipball, err := zip.OpenReader(outputDir)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	defer zipball.Close()
@@ -154,7 +148,7 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) error {
 		path := filepath.Join(outputDir, file.Name)
 
 		if !strings.HasPrefix(path, filepath.Clean(outputDir) + string(os.PathSeparator)) {
-			return errors.New("Invalid file path")
+			return "", errors.New("Invalid file path")
 		}
 
 		if file.FileInfo().IsDir() {
@@ -164,31 +158,31 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) error {
 		}
 
 		if err := os.MkdirAll(filepath.Dir(filepath.Dir(path)), os.ModePerm); err != nil {
-			return err
+			return "", err
 		}
 
 		// create file in output directory
 		destFile, err := os.OpenFile(path, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, file.Mode())
 
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		// open file in archive
 		zipballFile, err := file.Open()
 
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		// copy file in archive to the empty destination file
 		if _, err := io.Copy(destFile, zipballFile); err != nil {
-			return err
+			return "", err
 		}
 
 		destFile.Close()
 		zipballFile.Close()
 	}
 
-	return nil
+	return outputDir, nil
 }

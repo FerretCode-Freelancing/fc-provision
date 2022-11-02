@@ -9,7 +9,7 @@ func (rt *RubyTemplate) GetLanguage() string {
 func (rt *RubyTemplate) CreateTemplate() string {
 	dockerfile := ""
 
-	dockerfile += "FROM ruby:3.1.2-alpine\n"
+	dockerfile += "FROM docker.io/ruby:3.1.2-alpine\n"
 	dockerfile += "RUN bundle config --global frozen 1\n"
 	dockerfile += "WORKDIR /app\n"
 	dockerfile += "COPY Gemfile Gemfile.lock ./\n"

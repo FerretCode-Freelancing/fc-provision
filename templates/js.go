@@ -9,7 +9,7 @@ func (jt *JsTemplate) GetLanguage() string {
 func (jt *JsTemplate) CreateTemplate() string {
 	dockerfile := ""
 
-	dockerfile += "FROM node:19-alpine\n"
+	dockerfile += "FROM docker.io/node:19-alpine\n"
 	dockerfile += "WORKDIR /app\n"
 	dockerfile += "COPY package.json package-lock.json ./\n"
 	dockerfile += "RUN npm install\n"

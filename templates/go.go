@@ -9,7 +9,7 @@ func (gt *GoTemplate) GetLanguage() string {
 func (gt *GoTemplate) CreateTemplate() string {
 	dockerfile := ""
 
-	dockerfile += "FROM golang:1.19-alpine\n"
+	dockerfile += "FROM docker.io/golang:1.19-alpine\n"
 	dockerfile += "WORKDIR /app\n"
 	dockerfile += "COPY go.mod ./\n"
 	dockerfile += "COPY go.sum ./\n"
