@@ -42,6 +42,8 @@ func NewApi() Api {
 		}
 	})
 
+	http.ListenAndServe(":3000", r)
+
 	return *api
 }
 
@@ -137,6 +139,9 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 
 		return err
 	}
+
+	w.WriteHeader(200)
+	w.Write([]byte("The repository was deployed."))
 
 	return nil
 }
