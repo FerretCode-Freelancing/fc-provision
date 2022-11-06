@@ -27,7 +27,7 @@ func NewApi() Api {
 
 	username := strings.Trim(os.Getenv("FC_BUILDER_USERNAME"), "\n")
 	password := strings.Trim(os.Getenv("FC_BUILDER_PASSWORD"), "\n")
-
+	
 	if username != "" && password != "" {
 		r.Use(basicauth.New("fc-hosting", map[string][]string{
 			username: {password},
@@ -66,7 +66,7 @@ type BuildRequest struct {
 	Repo   string `json:"repo_name"`
 	Owner  string `json:"owner_name"`
 	Url    string `json:"cache_url"`
-	Cookie string `json:"session_id"`
+	Cookie string `json:"cookie"`
 }
 
 func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
@@ -92,7 +92,7 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 			return errors.New("the cache URL is invalid")
 		}
 
-		br.Url = fmt.Sprintf("%s:%s@%s:%s", username, password, ip, port)
+		br.Url = fmt.Sprintf("http://%s:%s@%s:%s", username, password, ip, port)
 	}
 
 	extractor := builder.Extractor{

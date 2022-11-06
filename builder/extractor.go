@@ -37,9 +37,11 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 		return false, github.Client{}, ctx, err
 	}
 
+	fmt.Printf("%s/get?sid=%s\n", e.Url, e.Cookie[4:36])
+
 	req, err := http.NewRequest(
 		"GET",
-		fmt.Sprintf("%s/get?sid=%s", e.Url, e.Cookie),
+		fmt.Sprintf("%s/get?sid=%s", e.Url, e.Cookie[4:36]),
 		nil,
 	)
 
@@ -53,13 +55,17 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 		return false, github.Client{}, ctx, err
 	}
 
+	defer res.Body.Close()
+
 	resBody, err := io.ReadAll(res.Body)
 
 	if err != nil {
 		return false, github.Client{}, ctx, err
 	}
 
-	authResponse := &AuthResponse{}
+	fmt.Println(string(resBody))
+
+	authResponse := AuthResponse{}
 
 	if jsonErr := json.Unmarshal(resBody, &authResponse); jsonErr != nil {
 		return false, github.Client{}, ctx, jsonErr
@@ -86,7 +92,9 @@ func (e *Extractor) DownloadRepo() (int64, error) {
 		return 0, errors.New("there was an error authenticating the current user")
 	}
 
-	repo, _, err := client.Repositories.Get(ctx, e.Owner, e.Repo)
+	repoName := strings.Split(e.Repo, "/")
+
+	repo, _, err := client.Repositories.Get(ctx, e.Owner, repoName[len(repoName) - 1])
 
 	if err != nil {
 		return 0, err
