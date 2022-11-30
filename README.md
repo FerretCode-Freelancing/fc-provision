@@ -18,7 +18,9 @@ A container provisioning engine
 
 ## Requirements
 - A Kubernetes cluster
-- A running fc-session-cache container
+- A running fc-session-cache pod
+- A running fc-registry pod
+- A running fc-auth pod
 - A Docker registry in the cluster with HTTPS enabled
 
 ## Docker
