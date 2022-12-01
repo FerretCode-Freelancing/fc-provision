@@ -1,12 +1,12 @@
 package detectors
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
 func Contains(path string, matches []string) (bool, error) {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 
 	if err != nil {
 		return false, err

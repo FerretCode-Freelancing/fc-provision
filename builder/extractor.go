@@ -2,6 +2,7 @@ package builder
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,10 @@ type Extractor struct {
 }
 
 type AuthResponse struct {
+	Session Sesssion `json:"session"`
+}
+
+type Sesssion struct {
 	Token string `json:"access_token"`
 }
 
@@ -36,8 +41,6 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 	if err != nil {
 		return false, github.Client{}, ctx, err
 	}
-
-	fmt.Printf("%s/get?sid=%s\n", e.Url, e.Cookie[4:36])
 
 	req, err := http.NewRequest(
 		"GET",
@@ -63,8 +66,6 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 		return false, github.Client{}, ctx, err
 	}
 
-	fmt.Println(string(resBody))
-
 	authResponse := AuthResponse{}
 
 	if jsonErr := json.Unmarshal(resBody, &authResponse); jsonErr != nil {
@@ -72,7 +73,7 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 	}
 
 	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: authResponse.Token},
+		&oauth2.Token{AccessToken: authResponse.Session.Token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
 
@@ -81,15 +82,15 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 	return true, *ghClient, ctx, nil
 }
 
-func (e *Extractor) DownloadRepo() (int64, error) {
+func (e *Extractor) DownloadRepo() (int64, string, error) {
 	ok, client, ctx, err := e.Auth()
 
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	if !ok {
-		return 0, errors.New("there was an error authenticating the current user")
+		return 0, "", errors.New("there was an error authenticating the current user")
 	}
 
 	repoName := strings.Split(e.Repo, "/")
@@ -97,46 +98,62 @@ func (e *Extractor) DownloadRepo() (int64, error) {
 	repo, _, err := client.Repositories.Get(ctx, e.Owner, repoName[len(repoName) - 1])
 
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
-	zipball, err := http.Get(*repo.ArchiveURL)
+	httpClient := &http.Client{}
+
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("%s/zipball/%s", *repo.URL, repo.GetMasterBranch()),
+		nil,
+	) 
 
 	if err != nil {
-		return 0, err
+		return 0, "", err
+	}
+
+	zipball, err := httpClient.Do(req)
+
+	if err != nil {
+		return 0, "", err
 	}
 
 	defer zipball.Body.Close()
 
+	zipballBody, err := io.ReadAll(zipball.Body)
+
+	if err != nil {
+		return 0, "", err
+	}
+
 	file, err := os.Create(
 		fmt.Sprintf(
-			"/tmp/fc-builder/%s-%s",
+			"/tmp/fc-builder/%s-%s.zip",
 			strconv.FormatInt(*repo.Owner.ID, 10),
 			*repo.Name,
 		),
 	)
 
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	defer file.Close()
 
-	_, downloadErr := io.Copy(file, zipball.Body)
+	_, downloadErr := io.Copy(file, bytes.NewReader(zipballBody))
 
 	if downloadErr != nil {
-		return 0, downloadErr
+		return 0, "", downloadErr
 	}
 
 	fmt.Printf(
-		"Downloaded %s-%s\n",
+		"Downloaded %s-%s.zip\n",
 		strconv.FormatInt(*repo.Owner.ID, 10),
 		*repo.Name,
 	)
 
-	e.ExtractRepo(*repo.Owner.ID, *repo.Name)
-
-	return 0, nil
+	return *repo.Owner.ID, *repo.Name, nil
 }
 
 func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) {
@@ -146,7 +163,13 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) 
 		repoName,
 	)
 
-	zipball, err := zip.OpenReader(outputDir)
+	zipball, err := zip.OpenReader(
+		fmt.Sprintf(
+			"/tmp/fc-builder/%s-%s.zip",
+			strconv.FormatInt(ownerId, 10),
+			repoName,
+		),
+	)
 
 	if err != nil {
 		return "", err
@@ -155,6 +178,8 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) 
 	defer zipball.Close()
 
 	for _, file := range zipball.File {
+		file.Name = filepath.Base(file.Name)
+
 		path := filepath.Join(outputDir, file.Name)
 
 		if !strings.HasPrefix(path, filepath.Clean(outputDir)+string(os.PathSeparator)) {
@@ -172,7 +197,7 @@ func (e *Extractor) ExtractRepo(ownerId int64, repoName string) (string, error) 
 		}
 
 		// create file in output directory
-		destFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		destFile, err := os.Create(path)
 
 		if err != nil {
 			return "", err

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,7 +103,7 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 		Cookie: br.Cookie,
 	}
 
-	ownerId, downloadErr := extractor.DownloadRepo()
+	ownerId, repo, downloadErr := extractor.DownloadRepo()
 
 	if downloadErr != nil {
 		http.Error(w, deployErr, http.StatusInternalServerError)
@@ -110,7 +111,7 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 		return downloadErr
 	}
 
-	path, err := extractor.ExtractRepo(ownerId, extractor.Repo)
+	path, err := extractor.ExtractRepo(ownerId, repo)
 
 	if err != nil {
 		http.Error(w, deployErr, http.StatusInternalServerError)
@@ -127,12 +128,48 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	if copyErr != nil {
 		http.Error(w, deployErr, http.StatusInternalServerError)
 
+		fmt.Println(copyErr)
+
+		return err
+	}
+
+	imageName := fmt.Sprintf("%s-%s", strings.ToLower(br.Owner), strings.ToLower(repo))
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(
+		"PATCH",
+		fmt.Sprintf(
+			"%s:%s/api/projects/update", 
+			os.Getenv("FC_PROJECTS_SERVICE_HOST"), 
+			os.Getenv("FC_PROJECTS_SERVICE_PORT"),
+		),
+		bytes.NewReader([]byte(fmt.Sprintf(`{ "imageName": "%s" }`, imageName))),
+	)
+
+	if err != nil {
+		http.Error(w, deployErr, http.StatusInternalServerError)
+
+		return err
+	}
+
+	res, err := client.Do(req)
+
+	if err != nil {
+		http.Error(w, deployErr, http.StatusInternalServerError)
+
+		return err
+	}
+	
+	if res.StatusCode != 200 {
+		http.Error(w, deployErr, http.StatusInternalServerError)
+
 		return err
 	}
 
 	buildErr := builder.Build(
 		path,
-		fmt.Sprintf("%s-%s", br.Owner, br.Repo),
+		imageName,
 	)
 
 	if buildErr != nil {

@@ -14,6 +14,8 @@ type Processor struct {
 }
 
 func (p *Processor) DetectLanguage() (string, error) {
+	fmt.Println("detecting...")
+
 	ds := &detectors.Detectors{}
 
 	detectors := ds.GetDetectors()
@@ -22,10 +24,12 @@ func (p *Processor) DetectLanguage() (string, error) {
 		detected, language, err := detector.Detect(p.Path)
 
 		if err != nil {
+			fmt.Println(err)
 			return "", err
 		}
 
 		if detected {
+			fmt.Println(language)
 			return language, nil
 		}
 
@@ -41,7 +45,7 @@ func (p *Processor) GetDockerfile() (string, error) {
 	)
 
 	if err != nil {
-		return "", err
+		fmt.Println("No dockerfile found already, generating...")
 	}
 
 	if len(existingDockerfile) != 0 {
@@ -53,6 +57,8 @@ func (p *Processor) GetDockerfile() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println(language)
 
 	ts := &templates.Templates{}
 
@@ -69,6 +75,7 @@ func (p *Processor) CopyDockerfile() error {
 	dockerfile, err := p.GetDockerfile()
 
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 
