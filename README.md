@@ -2,7 +2,7 @@
 A container provisioning engine
 
 ## How it Works
-- Your container has env variables exposed called `FC_BUILDER_CACHE_USERNAME` and `FC_BUILDER_CACHE_PASSWORD`
+- Your container has env variables exposed called `FC_BUILDER_USERNAME` and `FC_BUILDER_PASSWORD`
 - The builder will expose an API to interact with
 - Make requests to each endpoint with the format http://username:password@url-to-builder/endpoint
 
@@ -18,7 +18,9 @@ A container provisioning engine
 
 ## Requirements
 - A Kubernetes cluster
-- A running fc-session-cache container
+- A running fc-session-cache pod
+- A running fc-registry pod
+- A running fc-auth pod
 - A Docker registry in the cluster with HTTPS enabled
 
 ## Docker
