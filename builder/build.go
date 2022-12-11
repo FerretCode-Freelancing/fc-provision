@@ -34,8 +34,6 @@ func Build(path string, imageName string) error {
 		path,
 	)
 
-	// build.Dir = path
-
 	stderr, _ := build.StderrPipe()
 
 	if err := build.Start(); err != nil {
@@ -68,6 +66,7 @@ func Build(path string, imageName string) error {
 	push := exec.Command(
 		"img",
 		"push",
+		"--insecure-registry=true",
 		fmt.Sprintf("%s/%s", registry, imageName),
 	)
 

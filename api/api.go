@@ -68,6 +68,7 @@ type BuildRequest struct {
 	Owner  string `json:"owner_name"`
 	Url    string `json:"cache_url"`
 	Cookie string `json:"cookie"`
+	ProjectId string `json:"project_id"`
 }
 
 func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
@@ -135,32 +136,14 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 
 	imageName := fmt.Sprintf("%s-%s", strings.ToLower(br.Owner), strings.ToLower(repo))
 
-	client := &http.Client{}
-
-	req, err := http.NewRequest(
-		"PATCH",
-		fmt.Sprintf(
-			"%s:%s/api/projects/update", 
-			os.Getenv("FC_PROJECTS_SERVICE_HOST"), 
-			os.Getenv("FC_PROJECTS_SERVICE_PORT"),
-		),
-		bytes.NewReader([]byte(fmt.Sprintf(`{ "imageName": "%s" }`, imageName))),
-	)
+	res, err := UpdateProject(r, imageName, *br)
 
 	if err != nil {
 		http.Error(w, deployErr, http.StatusInternalServerError)
 
 		return err
 	}
-
-	res, err := client.Do(req)
-
-	if err != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
-		return err
-	}
-	
+		
 	if res.StatusCode != 200 {
 		http.Error(w, deployErr, http.StatusInternalServerError)
 
@@ -182,4 +165,40 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	w.Write([]byte("The repository was deployed."))
 
 	return nil
+}
+
+func UpdateProject(
+	r *http.Request, 
+	imageName string, 
+	br BuildRequest, 
+) (http.Response, error) {
+	client := &http.Client{}
+
+	req, err := http.NewRequest(
+		"PATCH",
+		fmt.Sprintf(
+			"http://%s:%s/api/projects/update?id=%s", 
+			os.Getenv("FC_PROJECTS_SERVICE_HOST"), 
+			os.Getenv("FC_PROJECTS_SERVICE_PORT"),
+			br.ProjectId,
+		),
+		bytes.NewReader([]byte(fmt.Sprintf(`{ "imageName": "%s" }`, imageName))),
+	)
+
+	if err != nil {
+		return http.Response{}, err
+	}
+
+	req.AddCookie(&http.Cookie{
+		Name: "fc-hosting",
+		Value: br.Cookie,
+	})
+
+	res, err := client.Do(req)
+
+	if err != nil {
+		return http.Response{}, err
+	}
+
+	return *res, nil
 }

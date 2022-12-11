@@ -40,6 +40,7 @@ func (p *Processor) DetectLanguage() (string, error) {
 }
 
 func (p *Processor) GetDockerfile() (string, error) {
+	fmt.Println("Checking for existing dockerfile...")
 	existingDockerfile, err := os.ReadFile(
 		fmt.Sprintf("%s/Dockerfile", p.Path),
 	)
@@ -57,8 +58,6 @@ func (p *Processor) GetDockerfile() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	fmt.Println(language)
 
 	ts := &templates.Templates{}
 
@@ -79,6 +78,8 @@ func (p *Processor) CopyDockerfile() error {
 		return err
 	}
 
+	fmt.Println("Copying dockerfile...")
+
 	file, err := os.Create(fmt.Sprintf("%s/Dockerfile", p.Path))
 
 	if err != nil {
@@ -86,6 +87,8 @@ func (p *Processor) CopyDockerfile() error {
 	}
 
 	file.WriteString(dockerfile)
+
+	fmt.Println("Dockerfile written.")
 
 	return nil
 }
