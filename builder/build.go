@@ -23,6 +23,11 @@ func Build(path string, imageName string) error {
 	registry := getRegistry()
 	fmt.Println(registry)
 
+	if strings.HasPrefix(registry, ":") {
+		return errors.New("the registry is not active")
+	}
+
+
 	box := box.New(box.Config{Px: 2, Py: 5, Type: "Round", Color: "White"})
 	box.Print(imageName, fmt.Sprintf("Building image %s...", imageName))
 
@@ -55,22 +60,12 @@ func Build(path string, imageName string) error {
 
 	fmt.Printf("Image %s was built successfully.\n", imageName)
 	fmt.Println("Pushing image...")
-
-	ip := os.Getenv("FC_REGISTRY_SERVICE_HOST")
-	port := os.Getenv("FC_REGISTRY_SERVICE_PORT")
-
-	if ip == "" || port == "" {
-		return errors.New("the registry is not active")
-	}
-
+	
 	push := exec.Command(
 		"img",
 		"push",
-		"--insecure-registry=true",
 		fmt.Sprintf("%s/%s", registry, imageName),
 	)
-
-	// push.Dir = path
 
 	stderr, _ = push.StderrPipe()
 
