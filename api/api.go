@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,9 +12,12 @@ import (
 	"strings"
 
 	"github.com/99designs/basicauth-go"
+	events "github.com/ferretcode-freelancing/fc-bus"
 	"github.com/ferretcode-freelancing/fc-provision/builder"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+	"github.com/kubemq-io/kubemq-go"
 )
 
 type Api struct{}
@@ -71,8 +75,37 @@ type BuildRequest struct {
 	ProjectId string `json:"project_id"`
 }
 
+type Ports struct {
+	ContainerPort int `json:"containerPort"`
+	Name string `json:"name"`
+}
+
+type DeployRequest struct {
+	Ports []Ports `json:"ports"`
+	Env map[string]string `json:"env"`
+	ImageName string `json:"image_name"`
+	ProjectId string `json:"project_id"`
+}
+
 func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	deployErr := "There was an error deploying your repository! Please try again later."
+
+	ctx := context.Background()
+
+	bus := events.Bus{
+		Channel: "deploy-pipeline",
+		ClientId: uuid.NewString(),
+		Context: ctx,
+		TransportType: kubemq.TransportTypeGRPC,
+	}
+
+	client, connectErr := bus.Connect()
+
+	if connectErr != nil {
+		http.Error(w, deployErr, http.StatusInternalServerError)
+
+		return connectErr
+	}
 
 	br := &BuildRequest{}
 	err := a.ProcessBody(w, r, br)
@@ -161,8 +194,35 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// TODO: add ports processing
+	// TODO: clean this up (function too long)
+
+	deployRequest := DeployRequest{
+		ImageName: imageName,
+		ProjectId: br.ProjectId,
+	}
+
+	stringified, err := json.Marshal(deployRequest)
+
+	if err != nil {
+		http.Error(w, deployErr, http.StatusInternalServerError)
+
+		return err
+	}
+
+	_, sendErr := client.Send(ctx, kubemq.NewQueueMessage().
+		SetId(uuid.NewString()).
+		SetChannel(bus.Channel).
+		SetBody(stringified))
+
+	if sendErr != nil {
+		http.Error(w, deployErr, http.StatusInternalServerError)
+
+		return err
+	}
+
 	w.WriteHeader(200)
-	w.Write([]byte("The repository was deployed."))
+	w.Write([]byte("The repository was built successfully."))
 
 	return nil
 }
