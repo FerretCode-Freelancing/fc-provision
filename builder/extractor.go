@@ -33,13 +33,13 @@ type Sesssion struct {
 	Token string `json:"access_token"`
 }
 
-func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, err error) {
+func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, token string, err error) {
 	ctx := context.Background()
 
 	client := &http.Client{}
 
 	if err != nil {
-		return false, github.Client{}, ctx, err
+		return false, github.Client{}, ctx, "", err
 	}
 
 	req, err := http.NewRequest(
@@ -49,13 +49,13 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 	)
 
 	if err != nil {
-		return false, github.Client{}, ctx, err
+		return false, github.Client{}, ctx, "", err
 	}
 
 	res, err := client.Do(req)
 
 	if err != nil {
-		return false, github.Client{}, ctx, err
+		return false, github.Client{}, ctx, "", err
 	}
 
 	defer res.Body.Close()
@@ -63,13 +63,13 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 	resBody, err := io.ReadAll(res.Body)
 
 	if err != nil {
-		return false, github.Client{}, ctx, err
+		return false, github.Client{}, ctx, "", err
 	}
 
 	authResponse := AuthResponse{}
 
 	if jsonErr := json.Unmarshal(resBody, &authResponse); jsonErr != nil {
-		return false, github.Client{}, ctx, jsonErr
+		return false, github.Client{}, ctx, "", jsonErr
 	}
 
 	ts := oauth2.StaticTokenSource(
@@ -79,11 +79,11 @@ func (e *Extractor) Auth() (success bool, gc github.Client, ct context.Context, 
 
 	ghClient := github.NewClient(tc)
 
-	return true, *ghClient, ctx, nil
+	return true, *ghClient, ctx, authResponse.Session.Token, nil
 }
 
 func (e *Extractor) DownloadRepo() (int64, string, error) {
-	ok, client, ctx, err := e.Auth()
+	ok, client, ctx, token, err := e.Auth()
 
 	if err != nil {
 		return 0, "", err
@@ -108,6 +108,8 @@ func (e *Extractor) DownloadRepo() (int64, string, error) {
 		fmt.Sprintf("%s/zipball/%s", *repo.URL, repo.GetMasterBranch()),
 		nil,
 	) 
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	if err != nil {
 		return 0, "", err
