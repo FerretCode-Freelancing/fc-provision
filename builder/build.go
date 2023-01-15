@@ -19,6 +19,8 @@ func getRegistry() string {
 }
 
 func Build(path string, imageName string) error {
+	// TODO: spawn one thread for every build process
+
 	fmt.Println("building...")
 	registry := getRegistry()
 	fmt.Println(registry)
