@@ -6,69 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/99designs/basicauth-go"
 	events "github.com/ferretcode-freelancing/fc-bus"
 	"github.com/ferretcode-freelancing/fc-provision/builder"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/kubemq-io/kubemq-go"
 )
 
-type Api struct{}
-
-func NewApi() Api {
-	api := &Api{}
-
-	r := chi.NewRouter()
-
-	r.Use(middleware.Logger)
-	r.Use(middleware.RealIP)
-
-	username := strings.Trim(os.Getenv("FC_BUILDER_USERNAME"), "\n")
-	password := strings.Trim(os.Getenv("FC_BUILDER_PASSWORD"), "\n")
-	
-	if username != "" && password != "" {
-		r.Use(basicauth.New("fc-hosting", map[string][]string{
-			username: {password},
-		}))
-	}
-
-	r.Post("/build", func(w http.ResponseWriter, r *http.Request) {
-		err := api.Build(w, r)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-	})
-
-	http.ListenAndServe(":3000", r)
-
-	return *api
-}
-
-// s is the struct to unmarshal the request body into
-func (a *Api) ProcessBody(w http.ResponseWriter, r *http.Request, s interface{}) error {
-	body, err := io.ReadAll(r.Body)
-
-	if err != nil {
-		return err
-	}
-
-	if jsonErr := json.Unmarshal(body, s); jsonErr != nil {
-		return jsonErr
-	}
-
-	return nil
-}
-
 type BuildRequest struct {
-	Repo   string `json:"repo_name"`
+	Repo   string `json:"repo_url"`
 	Owner  string `json:"owner_name"`
 	Url    string `json:"cache_url"`
 	Cookie string `json:"cookie"`
@@ -87,9 +37,42 @@ type DeployRequest struct {
 	ProjectId string `json:"project_id"`
 }
 
-func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
-	deployErr := "There was an error deploying your repository! Please try again later."
+func StartBuilder() chan struct{} {
+	ctx := context.Background()
 
+	bus := events.Bus{
+		Channel: "build-pipeline",
+		ClientId: uuid.NewString(),
+		Context: ctx,
+		TransportType: kubemq.TransportTypeGRPC,
+	}
+
+	client, err := bus.Connect()
+
+	if err != nil {
+		log.Fatal(fmt.Sprintf("There was an error starting the builder: %s", err))
+	}
+
+	fmt.Println("bus is connected")
+
+	done, err := bus.Subscribe(client, func(msgs *kubemq.ReceiveQueueMessagesResponse, subscribeErr error) {
+		fmt.Println("message received")
+
+		err := Build(msgs)
+
+		if err != nil {
+			log.Printf("There was an error building the image: %s", err)
+		}
+	})
+
+	if err != nil {
+		log.Fatal(fmt.Sprintf("There was an error subscribing to the bus: %s", err))
+	}
+
+	return done 
+}
+
+func Build(msgs *kubemq.ReceiveQueueMessagesResponse) error {
 	ctx := context.Background()
 
 	bus := events.Bus{
@@ -102,16 +85,14 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	client, connectErr := bus.Connect()
 
 	if connectErr != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return connectErr
 	}
 
-	br := &BuildRequest{}
-	err := a.ProcessBody(w, r, br)
+	message := msgs.Messages[0]
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	br := &BuildRequest{}
+
+	if err := json.Unmarshal(message.Body, &br); err != nil {
 		return err
 	}
 
@@ -123,7 +104,6 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 		port := os.Getenv("FC_SESSION_CACHE_SERVICE_PORT")
 
 		if username == "" || password == "" || ip == "" || port == "" {
-			http.Error(w, "Internal server error. Please try again later.", http.StatusInternalServerError)
 			return errors.New("the cache URL is invalid")
 		}
 
@@ -140,16 +120,12 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	ownerId, repo, downloadErr := extractor.DownloadRepo()
 
 	if downloadErr != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return downloadErr
 	}
 
 	path, err := extractor.ExtractRepo(ownerId, repo)
 
 	if err != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return err
 	}
 
@@ -160,26 +136,18 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	copyErr := processor.CopyDockerfile()
 
 	if copyErr != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
-		fmt.Println(copyErr)
-
 		return err
 	}
 
 	imageName := fmt.Sprintf("%s-%s", strings.ToLower(br.Owner), strings.ToLower(repo))
 
-	res, err := UpdateProject(r, imageName, *br)
+	res, err := UpdateProject(imageName, *br)
 
 	if err != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return err
 	}
 		
 	if res.StatusCode != 200 {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return err
 	}
 
@@ -189,8 +157,6 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	)
 
 	if buildErr != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return err
 	}
 
@@ -205,8 +171,6 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 	stringified, err := json.Marshal(deployRequest)
 
 	if err != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return err
 	}
 
@@ -216,19 +180,13 @@ func (a *Api) Build(w http.ResponseWriter, r *http.Request) error {
 		SetBody(stringified))
 
 	if sendErr != nil {
-		http.Error(w, deployErr, http.StatusInternalServerError)
-
 		return err
 	}
-
-	w.WriteHeader(200)
-	w.Write([]byte("The repository was built successfully."))
 
 	return nil
 }
 
 func UpdateProject(
-	r *http.Request, 
 	imageName string, 
 	br BuildRequest, 
 ) (http.Response, error) {
