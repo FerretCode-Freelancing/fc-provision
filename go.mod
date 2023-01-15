@@ -3,10 +3,8 @@ module github.com/ferretcode-freelancing/fc-provision
 go 1.19
 
 require (
-	github.com/99designs/basicauth-go v0.0.0-20160802081356-2a93ba0f464d
 	github.com/Delta456/box-cli-maker/v2 v2.3.0
 	github.com/ferretcode-freelancing/fc-bus v0.1.0
-	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/uuid v1.3.0
 	github.com/kubemq-io/kubemq-go v1.7.7
 )

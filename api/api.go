@@ -35,6 +35,7 @@ type DeployRequest struct {
 	Env map[string]string `json:"env"`
 	ImageName string `json:"image_name"`
 	ProjectId string `json:"project_id"`
+	Operation string `json:"operation"`
 }
 
 func StartBuilder() chan struct{} {
@@ -166,6 +167,7 @@ func Build(msgs *kubemq.ReceiveQueueMessagesResponse) error {
 	deployRequest := DeployRequest{
 		ImageName: imageName,
 		ProjectId: br.ProjectId,
+		Operation: "create",
 	}
 
 	stringified, err := json.Marshal(deployRequest)
@@ -175,6 +177,7 @@ func Build(msgs *kubemq.ReceiveQueueMessagesResponse) error {
 	}
 
 	_, sendErr := client.Send(ctx, kubemq.NewQueueMessage().
+		SetChannel("deploy-pipeline").
 		SetId(uuid.NewString()).
 		SetChannel(bus.Channel).
 		SetBody(stringified))
