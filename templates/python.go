@@ -14,7 +14,7 @@ func (pt *PythonTemplate) CreateTemplate() string {
 	dockerfile += "COPY requirements.txt ./\n"
 	dockerfile += "RUN pip install --no-cache-dir -r requirements.txt\n"
 	dockerfile += "COPY . .\n"
-	dockerfile += `CMD [ "python", "./index.py" ]`
+	dockerfile += `CMD [ "python", "./main.py" ]`
 
 	return dockerfile
 }

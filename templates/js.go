@@ -14,7 +14,7 @@ func (jt *JsTemplate) CreateTemplate() string {
 	dockerfile += "COPY package.json package-lock.json ./\n"
 	dockerfile += "RUN npm install\n"
 	dockerfile += "COPY . .\n"
-	dockerfile += `CMD [ "node ." ]`
+	dockerfile += `CMD [ "node index.js" ]`
 
 	return dockerfile
 }
