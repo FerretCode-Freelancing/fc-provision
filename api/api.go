@@ -23,10 +23,12 @@ type BuildRequest struct {
 	Url    string `json:"cache_url"`
 	Cookie string `json:"cookie"`
 	ProjectId string `json:"project_id"`
+	Ports []Ports `json:"ports"`
+	Env map[string]string `json:"env"`
 }
 
 type Ports struct {
-	ContainerPort int `json:"containerPort"`
+	ContainerPort int `json:"container_port"`
 	Name string `json:"name"`
 }
 
@@ -168,6 +170,8 @@ func Build(msgs *kubemq.ReceiveQueueMessagesResponse) error {
 		ImageName: imageName,
 		ProjectId: br.ProjectId,
 		Operation: "create",
+		Ports: br.Ports,
+		Env: br.Env,
 	}
 
 	stringified, err := json.Marshal(deployRequest)
