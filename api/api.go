@@ -25,6 +25,7 @@ type BuildRequest struct {
 	ProjectId string `json:"project_id"`
 	Ports []Ports `json:"ports"`
 	Env map[string]string `json:"env"`
+  RamLimit string `json:"ram_limit"`
 }
 
 type Ports struct {
@@ -38,6 +39,7 @@ type DeployRequest struct {
 	ImageName string `json:"image_name"`
 	ProjectId string `json:"project_id"`
 	Operation string `json:"operation"`
+  RamLimit string `json:"ram_limit"`
 }
 
 func StartBuilder() chan struct{} {
@@ -163,15 +165,13 @@ func Build(msgs *kubemq.ReceiveQueueMessagesResponse) error {
 		return err
 	}
 
-	// TODO: add ports processing
-	// TODO: clean this up (function too long)
-
 	deployRequest := DeployRequest{
 		ImageName: imageName,
 		ProjectId: br.ProjectId,
 		Operation: "create",
 		Ports: br.Ports,
 		Env: br.Env,
+    RamLimit: br.RamLimit,
 	}
 
 	stringified, err := json.Marshal(deployRequest)

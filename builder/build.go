@@ -34,6 +34,7 @@ func Build(path string, imageName string) error {
 	box.Print(imageName, fmt.Sprintf("Building image %s...", imageName))
 
 	build := exec.Command(
+    "BUILDKIT=1",
 		"img",
 		"build",
 		"-t",
